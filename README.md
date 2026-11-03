@@ -51,7 +51,11 @@ La respuesta solo identifica el comprobante. El detalle completo (cliente, total
 ## Sin esperar a SUNAT
 
 ```php
-$envio = $facturalo->documentos->enviar($documento, webhook: true);
+$envio = $facturalo->documentos->enviar(
+    $documento,
+    webhook: true,
+    idempotencyKey: 'orden-1042', // evita duplicar si reintentas el POST
+);
 // $envio['estado'] === 'EN_PROCESO': el resultado llega a tu webhook como documento.sunat.respuesta
 ```
 
@@ -84,6 +88,7 @@ $facturalo->consultas->tipoCambio('2026-10-30');
 // Webhooks enviados
 $facturalo->webhooks->listar(['estado' => 'error']);
 $facturalo->webhooks->reenviar($eventoId);
+// Si tu endpoint no responde 2xx, Facturalo reintenta el webhook hasta 5 veces.
 
 // SIRE (periodo YYYYMM)
 $facturalo->sire->ventas->resumen('202610');

@@ -26,16 +26,25 @@ final class Documentos
      * Con $webhook = true responde al instante con `estado` EN_PROCESO.
      *
      * @param array<string, mixed> $documento Cuerpo del comprobante (tipoComprobante, serie, cliente, items...).
+     * @param string|null $idempotencyKey Header Idempotency-Key (24 h). Misma clave + mismo cuerpo = misma respuesta.
      * @return array{estado: string, entorno: string, documento: array<string, mixed>, sunat?: array<string, mixed>, enlaces: array<string, string>, hash?: string|null, cadenaQr?: string}
      */
-    public function enviar(array $documento, bool $webhook = false, ?string $establecimiento = null): array
-    {
+    public function enviar(
+        array $documento,
+        bool $webhook = false,
+        ?string $establecimiento = null,
+        ?string $idempotencyKey = null,
+    ): array {
         $body = ['webhook' => $webhook, 'documento' => $documento];
         if ($establecimiento !== null) {
             $body['establecimiento'] = $establecimiento;
         }
 
-        return $this->http->request('POST', '/documentos/enviar', $body);
+        $headers = $idempotencyKey !== null && $idempotencyKey !== ''
+            ? ['Idempotency-Key' => $idempotencyKey]
+            : [];
+
+        return $this->http->request('POST', '/documentos/enviar', $body, [], $headers);
     }
 
     /**

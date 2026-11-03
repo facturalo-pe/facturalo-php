@@ -97,6 +97,30 @@ final class FacturaloClientTest extends TestCase
         self::assertSame('00000001', $envio['documento']['correlativo']);
     }
 
+    public function testEnviaIdempotencyKeyAlEmitir(): void
+    {
+        $history = [];
+        $guzzle = $this->guzzle([self::json(200, [
+            'success' => true,
+            'message' => 'ok',
+            'data' => [
+                'estado' => 'ACEPTADA',
+                'entorno' => 'demo',
+                'documento' => ['id' => 'uuid-1', 'estado' => 'ACEPTADA', 'serie' => 'F001', 'correlativo' => '00000001', 'tipo' => 'FACTURA'],
+                'sunat' => ['estado' => 'ACEPTADA', 'codigo' => '0', 'mensaje' => 'ok', 'notas' => []],
+            ],
+        ])], $history);
+
+        (new FacturaloClient(self::TOKEN, self::BASE, $guzzle))->documentos->enviar(
+            self::factura(),
+            false,
+            null,
+            'orden-1042',
+        );
+
+        self::assertSame('orden-1042', $history[0]['request']->getHeaderLine('Idempotency-Key'));
+    }
+
     public function testUnRechazoDeSunatNoLanza(): void
     {
         $guzzle = $this->guzzle([self::json(200, [

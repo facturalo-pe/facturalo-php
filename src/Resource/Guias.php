@@ -20,11 +20,16 @@ final class Guias
      * Con $webhook = true responde EN_PROCESO y el resultado llega como guia.sunat.respuesta.
      *
      * @param array<string, mixed> $guia
+     * @param string|null $idempotencyKey Header Idempotency-Key (24 h).
      * @return array<string, mixed>
      */
-    public function enviar(array $guia, bool $webhook = false): array
+    public function enviar(array $guia, bool $webhook = false, ?string $idempotencyKey = null): array
     {
-        return $this->http->request('POST', '/guias/enviar', ['webhook' => $webhook, 'guia' => $guia]);
+        $headers = $idempotencyKey !== null && $idempotencyKey !== ''
+            ? ['Idempotency-Key' => $idempotencyKey]
+            : [];
+
+        return $this->http->request('POST', '/guias/enviar', ['webhook' => $webhook, 'guia' => $guia], [], $headers);
     }
 
     /**

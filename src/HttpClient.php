@@ -43,11 +43,12 @@ final class HttpClient
      *
      * @param array<string, mixed>|null $body
      * @param array<string, scalar|null> $query
+     * @param array<string, string> $headers Headers extra (p. ej. Idempotency-Key).
      * @return array<string, mixed>
      */
-    public function request(string $method, string $path, ?array $body = null, array $query = []): array
+    public function request(string $method, string $path, ?array $body = null, array $query = [], array $headers = []): array
     {
-        $envelope = $this->send($method, $path, $body, $query);
+        $envelope = $this->send($method, $path, $body, $query, $headers);
         $data = $envelope['data'] ?? [];
 
         return is_array($data) ? $data : [];
@@ -77,16 +78,17 @@ final class HttpClient
     /**
      * @param array<string, mixed>|null $body
      * @param array<string, scalar|null> $query
+     * @param array<string, string> $extraHeaders
      * @return array<string, mixed>
      */
-    private function send(string $method, string $path, ?array $body, array $query): array
+    private function send(string $method, string $path, ?array $body, array $query, array $extraHeaders = []): array
     {
         $options = [
-            'headers' => [
+            'headers' => array_merge([
                 // Facturalo no usa el esquema Bearer: el token va tal cual.
                 'Authorization' => $this->token,
                 'Accept' => 'application/json',
-            ],
+            ], $extraHeaders),
             'http_errors' => false,
             'timeout' => $this->timeoutSeconds,
         ];
@@ -98,9 +100,8 @@ final class HttpClient
             $options['query'] = array_map(static fn ($v) => is_bool($v) ? ($v ? 'true' : 'false') : $v, $query);
         }
 
-        // Solo se reintentan lecturas. Un POST de envío nunca se repite a ciegas: podría emitir dos
-        // veces el mismo comprobante o chocar con el correlativo ya usado.
-        $canRetry = $method === 'GET';
+        // GET siempre. POST solo con Idempotency-Key (el servidor deduplica).
+        $canRetry = $method === 'GET' || isset($extraHeaders['Idempotency-Key']);
         $maxAttempts = $canRetry ? self::MAX_RETRIES + 1 : 1;
 
         $lastException = null;

@@ -1,6 +1,6 @@
 {
   "name": "facturalo-pe/facturalo-php",
-  "description": "SDK oficial de Facturalo para PHP: emite facturas, boletas, notas y guías de remisión ante SUNAT, consulta RUC/DNI y verifica webhooks.",
+  "description": "SDK oficial de Facturalo para PHP: emite facturas, boletas, notas y guías de remisión ante SUNAT, consulta RUC/DNI, idempotencia y verifica webhooks.",
   "type": "library",
   "license": "MIT",
   "homepage": "https://docs.facturalo.pe",
@@ -8,12 +8,12 @@
     "issues": "https://github.com/facturalo-pe/facturalo-php/issues",
     "source": "https://github.com/facturalo-pe/facturalo-php",
     "docs": "https://docs.facturalo.pe",
-    "email": "soporte@facturalo.pe"
+    "email": "contacto@facturalo.pe"
   },
   "authors": [
     {
       "name": "Facturalo",
-      "email": "soporte@facturalo.pe",
+      "email": "contacto@facturalo.pe",
       "homepage": "https://www.facturalo.pe",
       "role": "Developer"
     }
