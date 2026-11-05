@@ -88,6 +88,8 @@ final class HttpClient
                 // Facturalo no usa el esquema Bearer: el token va tal cual.
                 'Authorization' => $this->token,
                 'Accept' => 'application/json',
+                // Facturalo registra desde dónde se emite cada comprobante (consola, API, SDK…).
+                'X-Facturalo-Origen' => 'sdk-php',
             ], $extraHeaders),
             'http_errors' => false,
             'timeout' => $this->timeoutSeconds,
