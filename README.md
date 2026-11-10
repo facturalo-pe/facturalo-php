@@ -84,6 +84,8 @@ $facturalo->guias->listar(['pagina' => 1]);
 $facturalo->consultas->ruc('20601476551');
 $facturalo->consultas->dni('12345678');
 $facturalo->consultas->tipoCambio('2026-10-30');
+// Código de producto SUNAT para un ítem, por su descripción
+$facturalo->consultas->codigoProductoSunat('laptop core i5', limite: 3);
 
 // Webhooks enviados
 $facturalo->webhooks->listar(['estado' => 'error']);

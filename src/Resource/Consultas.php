@@ -6,7 +6,7 @@ namespace Facturalo\Resource;
 
 use Facturalo\HttpClient;
 
-/** Consultas de RUC, DNI, tipo de cambio y vehículos. Aceptan token de empresa o de usuario. */
+/** Consultas de RUC, DNI, tipo de cambio, vehículos y código de producto SUNAT. Aceptan token de empresa o de usuario. */
 final class Consultas
 {
     public function __construct(private readonly HttpClient $http)
@@ -53,6 +53,22 @@ final class Consultas
     public function tipoCambio(?string $fecha = null): array
     {
         return $this->http->request('GET', '/consulta/tipo-cambio', null, ['fecha' => $fecha]);
+    }
+
+    /**
+     * Código de producto SUNAT (catálogo UNSPSC de 8 dígitos) a partir de una descripción
+     * ("laptop core i5", "servicio de instalación"). Búsqueda semántica sobre el CUBSO; úsalo para
+     * completar `codigoProductoSunat` de cada ítem.
+     *
+     * @param string|null $tipo bien | servicio | obra | consultoria_obra
+     * @return array<string, mixed> {consulta, modo, resultados: [{codigo, nombre, descripcion, tipo, ejemplos, similitud}]}
+     */
+    public function codigoProductoSunat(string $descripcion, ?string $tipo = null, ?int $limite = null): array
+    {
+        return $this->http->request('GET', '/catalogos/productos-sunat', null, array_filter(
+            ['q' => $descripcion, 'tipo' => $tipo, 'limite' => $limite],
+            fn ($v) => $v !== null,
+        ));
     }
 
     /** @return array<string, mixed> */
