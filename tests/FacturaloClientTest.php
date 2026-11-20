@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Facturalo\Tests;
 
+use Facturalo\Exception\FacturaloApiException;
 use Facturalo\Exception\FacturaloAuthenticationException;
 use Facturalo\Exception\FacturaloConnectionException;
 use Facturalo\Exception\FacturaloNotFoundException;
+use Facturalo\Exception\FacturaloPermissionException;
 use Facturalo\Exception\FacturaloValidationException;
 use Facturalo\FacturaloClient;
 use Facturalo\FacturaloCuentaClient;
@@ -169,6 +171,23 @@ final class FacturaloClientTest extends TestCase
         ]));
         $this->expectException(FacturaloNotFoundException::class);
         $client->documentos->consultar('x');
+    }
+
+    public function testExponeElCodigoDeErrorDePlan(): void
+    {
+        $guzzle = $this->guzzle([self::json(403, [
+            'success' => false,
+            'code' => 'PLAN_SIN_API',
+            'message' => 'El plan Gratis no incluye la API. Está incluida en los planes Básico, Pro y Negocio.',
+        ])]);
+
+        try {
+            (new FacturaloClient('sk_live_x', null, $guzzle))->documentos->enviar(self::factura());
+            self::fail('Debió lanzar');
+        } catch (FacturaloPermissionException $e) {
+            self::assertSame(403, $e->getStatus());
+            self::assertSame(FacturaloApiException::PLAN_SIN_API, $e->getErrorCode());
+        }
     }
 
     public function testReintentaConsultasAnte503PeroNuncaUnEnvio(): void

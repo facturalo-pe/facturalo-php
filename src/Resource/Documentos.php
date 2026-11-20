@@ -26,6 +26,10 @@ final class Documentos
      * Con $webhook = true responde al instante con `estado` EN_PROCESO.
      *
      * @param array<string, mixed> $documento Cuerpo del comprobante (tipoComprobante, serie, cliente, items...).
+     *   Opcionales: `percepcion` ['tipo' => '51'|'52'|'53'] (solo al contado), `retencion`
+     *   ['tipo' => '62', 'porcentaje' => 3] (solo facturas a RUC), `totalOtrosCargos` (código 50,
+     *   fuera de la base del IGV) y `tipoCambio` (obligatorio en USD con ICBPER o percepción).
+     *   `totalIsc` mayor a 0 responde 422.
      * @param string|null $idempotencyKey Header Idempotency-Key (24 h). Misma clave + mismo cuerpo = misma respuesta.
      * @return array{estado: string, entorno: string, documento: array<string, mixed>, sunat?: array<string, mixed>, enlaces: array<string, string>, hash?: string|null, cadenaQr?: string}
      */
