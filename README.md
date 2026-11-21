@@ -109,7 +109,7 @@ $facturalo->documentos->anular('01', 'F001', '1', 'Error en el monto');
 $facturalo->documentos->reenviar($id);
 $facturalo->documentos->eventos($id);
 $facturalo->documentos->eliminar($id);                       // solo NO_ENVIADA
-file_put_contents('F001-1.pdf', $facturalo->documentos->descargar($id, 'pdf')); // pdf | ticket | xml | cdr
+file_put_contents('F001-1.pdf', $facturalo->documentos->descargar($id, 'pdf')); // pdf | ticket (80 mm) | ticket58 (58 mm) | xml | cdr
 
 // Guías de remisión (serie T... remitente, V... transportista)
 $facturalo->guias->enviar($guia, webhook: false);

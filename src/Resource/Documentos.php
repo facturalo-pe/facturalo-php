@@ -12,6 +12,7 @@ final class Documentos
     private const EXTENSION = [
         'pdf' => '.pdf',
         'ticket' => '.ticket.pdf',
+        'ticket58' => '.ticket.pdf?ancho=58',
         'xml' => '.xml',
         'cdr' => '.cdr',
     ];
@@ -155,17 +156,17 @@ final class Documentos
         $this->http->request('DELETE', '/documentos/' . rawurlencode($id));
     }
 
-    /** URL pública del archivo (no requiere token). $formato: pdf, ticket, xml o cdr. */
+    /** URL pública del archivo (no requiere token). $formato: pdf, ticket (80 mm), ticket58 (58 mm), xml o cdr. */
     public function urlArchivo(string $id, string $formato = 'pdf'): string
     {
         if (!isset(self::EXTENSION[$formato])) {
-            throw new \InvalidArgumentException('Formato no válido. Usa pdf, ticket, xml o cdr.');
+            throw new \InvalidArgumentException('Formato no válido. Usa pdf, ticket, ticket58, xml o cdr.');
         }
 
         return $this->http->fileUrl('/documentos/' . rawurlencode($id) . self::EXTENSION[$formato]);
     }
 
-    /** Descarga el PDF (A4 o ticket), el XML firmado o el CDR de SUNAT. Devuelve el contenido binario. */
+    /** Descarga el PDF (A4 o ticket de 80 o 58 mm), el XML firmado o el CDR de SUNAT. Devuelve el contenido binario. */
     public function descargar(string $id, string $formato = 'pdf'): string
     {
         return $this->http->download($this->urlArchivo($id, $formato));
