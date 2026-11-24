@@ -85,6 +85,34 @@ $facturalo->documentos->enviar(array_merge($documento, ['moneda' => 'USD', 'tipo
 - `tipoIgv` `17` es IVAP (arroz pilado, 4%): ese comprobante solo lleva ítems con IVAP.
 - El ISC todavía no se emite por la API: `totalIsc` mayor a 0 responde 422.
 
+## Guía transportista (31)
+
+La empresa del token es el transportista: van el remitente (dueño de la carga), el destinatario, la placa con su TUC, el conductor y el registro MTC. Si la guía remitente (09) relacionada es electrónica, `items` va vacío: SUNAT toma el detalle de esa guía. `indicadores` acepta `remitente` o `subcontratador` (quién paga el flete) y `traslado_total`.
+
+```php
+$facturalo->guias->enviar([
+    'serie' => 'V001',
+    'correlativo' => '1',
+    'fechaEmision' => '2026-11-24',
+    'motivoTraslado' => '01',
+    'remitente' => ['tipoDocumento' => '6', 'numeroDocumento' => '20512345678', 'denominacion' => 'COMERCIAL REMITENTE S.A.C.'],
+    'destinatario' => ['tipoDocumento' => '6', 'numeroDocumento' => '20605302379', 'denominacion' => 'DISTRIBUIDORA DESTINO S.A.C.'],
+    'datosTransportista' => ['numeroMTC' => '1500123456'],
+    'datosTraslado' => ['fecha' => '2026-11-24', 'pesoBrutoTotal' => 50, 'pesoUnidadMedida' => 'KGM', 'numeroBultos' => 5,
+                        'indicadores' => ['remitente']],
+    'datosVehiculo' => ['numeroPlaca' => 'ABC123', 'numeroTUC' => '15M21012345678'],
+    'datosChofer' => ['tipoDocumento' => '1', 'numeroDocumento' => '45678912', 'numeroLicencia' => 'Q45678912',
+                      'nombres' => 'CARLOS', 'apellidos' => 'RAMOS TORRES'],
+    'puntoPartida' => ['ubigeo' => '150101', 'direccion' => 'AV. ARGENTINA 1234 - LIMA'],
+    'puntoLlegada' => ['ubigeo' => '040101', 'direccion' => 'CALLE MERCADERES 456 - AREQUIPA'],
+    'documentosRelacionados' => [['tipoDocumento' => '09', 'numeroDocumento' => 'T001-00000123']],
+    'items' => [],
+]);
+```
+
+- Con una factura relacionada y `traslado_total`, `items` también puede ir vacío.
+- Un indicador que no existe responde 422. Lista completa: [docs.facturalo.pe](https://docs.facturalo.pe).
+
 ## Sin esperar a SUNAT
 
 ```php
