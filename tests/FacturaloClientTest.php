@@ -259,6 +259,72 @@ final class FacturaloClientTest extends TestCase
         self::assertSame('ANULADA', $anulacion['estado']);
     }
 
+    /** @return array<string, mixed> */
+    private static function guiaRemitente(): array
+    {
+        return [
+            'serie' => 'T001',
+            'correlativo' => '1',
+            'fechaEmision' => '2026-11-28',
+            'tipoTransporte' => '02',
+            'motivoTraslado' => '02',
+            'cliente' => ['tipoDocumento' => '6', 'numeroDocumento' => '20000000001', 'denominacion' => 'EMPRESA S.A.C.'],
+            'proveedor' => ['tipoDocumento' => '6', 'numeroDocumento' => '20512345678', 'denominacion' => 'PROVEEDOR S.A.C.'],
+            'datosTraslado' => ['fecha' => '2026-11-28', 'pesoBrutoTotal' => 130, 'pesoUnidadMedida' => 'KGM', 'numeroBultos' => 7],
+            'datosTransportista' => ['numeroPlaca' => 'ABC123'],
+            'puntoPartida' => ['ubigeo' => '150101', 'direccion' => 'AV. ARGENTINA 1234 - LIMA'],
+            'puntoLlegada' => ['ubigeo' => '040101', 'direccion' => 'CALLE MERCADERES 456 - AREQUIPA'],
+            'items' => [['codigo' => 'P001', 'descripcion' => 'CAJA', 'unidadMedida' => 'NIU', 'cantidad' => 5]],
+        ];
+    }
+
+    public function testValidarGuiaEnviaLaGuiaEnvueltaYDevuelveLaPrediccion(): void
+    {
+        $history = [];
+        $guzzle = $this->guzzle([self::json(200, ['success' => true, 'message' => 'x', 'data' => [
+            'valido' => false,
+            'prediccion' => 'RECHAZADA',
+            'guia' => ['tipo' => '09', 'serie' => 'T001', 'correlativo' => '1'],
+            'errores' => [['codigo' => '3343', 'mensaje' => 'Fecha de traslado anterior a la emisión', 'detalle' => 'x']],
+            'observaciones' => [],
+        ]])], $history);
+
+        $validacion = (new FacturaloClient(self::TOKEN, self::BASE, $guzzle))->guias->validar(self::guiaRemitente());
+
+        $request = $history[0]['request'];
+        self::assertSame('POST', $request->getMethod());
+        self::assertSame(self::BASE . '/guias/validar', (string) $request->getUri());
+        self::assertSame(['guia' => self::guiaRemitente()], json_decode((string) $request->getBody(), true));
+        self::assertSame('RECHAZADA', $validacion['prediccion']);
+        self::assertSame('3343', $validacion['errores'][0]['codigo']);
+    }
+
+    public function testValidarGuiaMapea422Y503SinReintentar(): void
+    {
+        $client = new FacturaloClient(self::TOKEN, null, $this->guzzle([
+            self::json(422, ['success' => false, 'message' => 'x', 'errors' => ['guia.proveedor' => ['El proveedor es obligatorio.']]]),
+        ]));
+        try {
+            $client->guias->validar(self::guiaRemitente());
+            self::fail('Debió lanzar');
+        } catch (FacturaloValidationException $e) {
+            self::assertSame(['El proveedor es obligatorio.'], $e->getErrors()['guia.proveedor']);
+        }
+
+        $history = [];
+        $client = new FacturaloClient(self::TOKEN, null, $this->guzzle([
+            self::json(503, ['success' => false, 'message' => 'x', 'data' => ['valido' => null]]),
+            self::json(200, ['success' => true, 'data' => []]),
+        ], $history));
+        try {
+            $client->guias->validar(self::guiaRemitente());
+            self::fail('Debió lanzar');
+        } catch (FacturaloApiException $e) {
+            self::assertSame(503, $e->getStatus());
+        }
+        self::assertCount(1, $history);
+    }
+
     public function testArmaLasUrlsPublicasDeArchivos(): void
     {
         $client = new FacturaloClient(self::TOKEN, self::BASE);

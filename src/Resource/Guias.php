@@ -19,6 +19,11 @@ final class Guias
      * POST /guias/enviar: la serie decide el tipo (T... remitente 09, V... transportista 31).
      * Con $webhook = true responde EN_PROCESO y el resultado llega como guia.sunat.respuesta.
      *
+     * Remitente (09): `proveedor` {tipoDocumento, numeroDocumento, denominacion} es obligatorio con
+     * motivo 02 y 07; `comprador` (mismos campos) con motivo 03; `descripcionMotivo` (máx. 100) con
+     * motivo 13 si no hay `observaciones`. Los motivos 08 y 09 aún no se emiten (422).
+     * Transportista (31): `datosVehiculo.numeroTUC` es obligatorio (10 a 15 letras y números).
+     *
      * @param array<string, mixed> $guia
      * @param string|null $idempotencyKey Header Idempotency-Key (24 h).
      * @return array<string, mixed>
@@ -30,6 +35,23 @@ final class Guias
             : [];
 
         return $this->http->request('POST', '/guias/enviar', ['webhook' => $webhook, 'guia' => $guia], [], $headers);
+    }
+
+    /**
+     * POST /guias/validar: con el mismo arreglo que enviar(), aplica las reglas de la API (422 como
+     * enviar), arma el XML y corre las reglas de SUNAT. No usa el correlativo, no guarda ni envía.
+     * Si las reglas de SUNAT no están disponibles lanza FacturaloApiException con status 503: la guía
+     * se puede enviar igual.
+     *
+     * @param array<string, mixed> $guia
+     * @return array{valido: bool, prediccion: string, guia: array{tipo: string, serie: string|null, correlativo: string|null},
+     *     errores: list<array{codigo: string|null, mensaje: string, detalle: string}>,
+     *     observaciones: list<array{codigo: string|null, mensaje: string, detalle: string}>}
+     */
+    public function validar(array $guia): array
+    {
+        /** @var array{valido: bool, prediccion: string, guia: array{tipo: string, serie: string|null, correlativo: string|null}, errores: list<array{codigo: string|null, mensaje: string, detalle: string}>, observaciones: list<array{codigo: string|null, mensaje: string, detalle: string}>} */
+        return $this->http->request('POST', '/guias/validar', ['guia' => $guia]);
     }
 
     /**

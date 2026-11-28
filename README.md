@@ -84,6 +84,56 @@ $facturalo->documentos->enviar(array_merge($documento, ['moneda' => 'USD', 'tipo
 - Al crédito con cliente RUC, las `cuotas` deben sumar total + ICBPER + otros cargos − anticipos − detracción − retención.
 - `tipoIgv` `17` es IVAP (arroz pilado, 4%): ese comprobante solo lleva ítems con IVAP.
 - El ISC todavía no se emite por la API: `totalIsc` mayor a 0 responde 422.
+- Un ítem gratuito no lleva `descuento`; el descuento debe ser menor que cantidad × precio y no puede dejar el precio neto en 0.00.
+- Una línea gravada o IVAP tan pequeña que su impuesto sería 0 responde 422. Con `icbper` (bolsas) la cantidad es entera.
+- La factura (01) va a un cliente con RUC, salvo exportación: los ítems {'node': '`tipoIgv: "40"`', 'php': '`tipoIgv` `40`', 'python': '`tipoIgv` `"40"`'} requieren `sunatTransaccion: "0200"`.
+- Notas tipo 11 solo con ítems de exportación (40) y tipo 12 solo con IVAP (17). La nota de crédito 13 solo va sobre una factura, con `formaPago: "CREDITO"` y las `cuotas` del nuevo cronograma (se emite con importe 0).
+- Cada anticipo tiene `monto` mayor a 0 y su suma no supera el importe del comprobante.
+
+## Guía remitente (09): compra, venta a terceros y otros
+
+Con serie T... la empresa del token es el remitente. Según el motivo van datos extra: `proveedor` es obligatorio con 02 (Compra) y 07 (Recojo de bienes transformados), `comprador` con 03 (Venta con entrega a terceros), y `descripcionMotivo` (máx. 100) con 13 (Otros) si no hay `observaciones`. Ambos llevan `tipoDocumento` (0, 1, 4, 6, 7 o A), `numeroDocumento` y `denominacion`.
+
+```php
+// Compra (02): el destinatario es tu propia empresa y va el proveedor.
+$guia = [
+    'serie' => 'T001',
+    'correlativo' => '1',
+    'fechaEmision' => '2026-11-28',
+    'tipoTransporte' => '02',
+    'motivoTraslado' => '02',
+    'cliente' => ['tipoDocumento' => '6', 'numeroDocumento' => '20600000001', 'denominacion' => 'TU EMPRESA S.A.C.'],
+    'proveedor' => ['tipoDocumento' => '6', 'numeroDocumento' => '20512345678', 'denominacion' => 'PROVEEDOR S.A.C.'],
+    'datosTraslado' => ['fecha' => '2026-11-28', 'pesoBrutoTotal' => 130, 'pesoUnidadMedida' => 'KGM', 'numeroBultos' => 7],
+    'datosTransportista' => ['numeroPlaca' => 'ABC123'],
+    'datosChofer' => ['tipoDocumento' => '1', 'numeroDocumento' => '45678912', 'numeroLicencia' => 'Q45678912',
+                      'nombres' => 'CARLOS', 'apellidos' => 'RAMOS TORRES'],
+    'puntoPartida' => ['ubigeo' => '150101', 'direccion' => 'AV. ARGENTINA 1234 - LIMA'],
+    'puntoLlegada' => ['ubigeo' => '040101', 'direccion' => 'CALLE MERCADERES 456 - AREQUIPA'],
+    'items' => [['codigo' => 'P001', 'descripcion' => 'CAJA DE PRODUCTOS', 'unidadMedida' => 'NIU', 'cantidad' => 5]],
+];
+$facturalo->guias->enviar($guia);
+
+// Venta con entrega a terceros (03): `cliente` es quien recibe y va el comprador.
+$base = $guia;
+unset($base['proveedor']);
+$facturalo->guias->enviar(array_merge($base, [
+    'correlativo' => '2',
+    'motivoTraslado' => '03',
+    'cliente' => ['tipoDocumento' => '6', 'numeroDocumento' => '20605302379', 'denominacion' => 'ALMACEN DESTINO S.A.C.'],
+    'comprador' => ['tipoDocumento' => '6', 'numeroDocumento' => '20111111111', 'denominacion' => 'COMPRADOR S.A.C.'],
+]));
+
+// Otros (13): describe el motivo.
+$facturalo->guias->enviar(array_merge($base, [
+    'correlativo' => '3', 'motivoTraslado' => '13', 'descripcionMotivo' => 'TRASLADO A TALLER DE REPARACION',
+]));
+```
+
+- `proveedor` y `comprador` solo se aceptan en sus motivos. Con 02, 04, 07 y 18 el destinatario (`cliente`) es la propia empresa.
+- Los motivos 08 (Importación) y 09 (Exportación) aún no se emiten por la API: responden 422.
+- `observaciones` hasta 250 caracteres; la fecha de traslado no puede ser anterior a `fechaEmision`; `pesoBrutoTotal` y cada `cantidad` mayores a 0; `numeroBultos` entero.
+- Con transporte público el transportista no puede tener el RUC de tu empresa. Con el indicador `TrasladoVehiculoM1L` no se exigen la placa ni `datosChofer`.
 
 ## Guía transportista (31)
 
@@ -110,8 +160,26 @@ $facturalo->guias->enviar([
 ]);
 ```
 
+- `datosVehiculo.numeroTUC` es obligatorio: TUC, constancia de inscripción vehicular o certificado de habilitación vehicular (10 a 15 letras y números).
 - Con una factura relacionada y `traslado_total`, `items` también puede ir vacío.
 - Un indicador que no existe responde 422. Lista completa: [docs.facturalo.pe](https://docs.facturalo.pe).
+
+## Validar una guía sin emitirla
+
+`validar` recibe lo mismo que `enviar` (remitente o transportista) y responde si SUNAT la aceptaría: aplica las reglas de la API (422 como `enviar`), arma el XML y corre las reglas de SUNAT, sin usar el correlativo, guardar ni enviar nada.
+
+```php
+$validacion = $facturalo->guias->validar($guia);
+if ($validacion['prediccion'] === 'RECHAZADA') {
+    foreach ($validacion['errores'] as $e) {
+        echo $e['codigo'], ' ', $e['mensaje'], PHP_EOL;
+    }
+} else {
+    $facturalo->guias->enviar($guia);
+}
+```
+
+Si las reglas de SUNAT no están disponibles lanza `FacturaloApiException` con `getStatus()` 503: la guía se puede enviar igual.
 
 ## Sin esperar a SUNAT
 
@@ -141,6 +209,7 @@ file_put_contents('F001-1.pdf', $facturalo->documentos->descargar($id, 'pdf')); 
 
 // Guías de remisión (serie T... remitente, V... transportista)
 $facturalo->guias->enviar($guia, webhook: false);
+$facturalo->guias->validar($guia);
 $facturalo->guias->consultar($id);
 $facturalo->guias->consultarTicket($ticket);
 $facturalo->guias->listar(['pagina' => 1]);
